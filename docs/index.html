@@ -1,0 +1,396 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>
+  body {
+    background-color: white;
+    padding: 100px;
+    width: 1000px;
+    margin: auto;
+    text-align: left;
+    font-weight: 300;
+    font-family: 'Open Sans', sans-serif;
+    color: #121212;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Source Sans Pro', sans-serif;
+  }
+  kbd {
+    color: #121212;
+  }
+</style>
+<title>CS 184 Mesh Edit</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']]
+    }
+  };
+</script>
+<script id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+</head>
+
+
+<body>
+
+<h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2018</h1>
+<h1 align="middle">Project 2: Mesh Edit</h1>
+<h2 align="middle">An Le</h2>
+
+<br><br>
+
+<div>
+
+<h2 align="middle">Overview</h2>
+<p>
+    In this assignment, I implemented de Casteljau's algorithm for modeling Bezier curves and surfaces, which can be used to render smooth surafces. However, they are difficult to render correctly
+    due to how they are defined by their control points, which means that some surfaces may not be accurately represented. However, we can use triangle meshes instead to accurately render smooth 
+    surfaces for geometric models. I've implemented the code that can do this using area weighted vertex normals for better shading of smooth surfaces 
+    and using loop subdivision to upsample polygon meshes into higher resolution ones via edge splitting, edge flipping, and adjusting the weights of vertices in the mesh. 
+</p>
+<br>
+
+
+<h2 align="middle">Section I: Bezier Curves and Surfaces</h2>
+
+<h3 align="middle">Part 1: Bezier Curves with 1D de Casteljau Subdivision</h3>
+
+
+<b>
+  Briefly explain de Casteljau's algorithm and how you implemented it in order to evaluate Bezier curves.
+</b>
+<p>
+    De Casteljau's algorithm is a method where given some number of control points, linear interpolations can be applied to every two points going across the grid to produce new points. 
+    The algorithm is recursively applied to the new points every time until only a single point is produced. These points are used to approximate the Bezier curve. I impelented the algorithm
+    by using a for loop to iterate through every consecutive pair of points and applying linear interpolation to each one with the scalar parameter t. I stored the results in a vector that gets 
+    returned at the end of the loop. 
+</p>
+<br>
+
+
+<b>
+  Take a look at the provided .bzc files and create your own Bezier curve with 6 control points of your choosing. Use this Bezier curve for your screenshots below.
+</b>
+<p>
+    Below is my custom Bezier curve defined by 6 control points. 
+</p>
+<!-- Example of including a single figure -->
+<div align="middle">
+  <img src="images/6curve.png" align="middle" width="50%">
+</div>
+<br>
+
+<b>
+  Show screenshots of each step / level of the evaluation from the original control points down to the final evaluated point. Press <kbd>E</kbd> to step through. Toggle <kbd>C</kbd> to show the completed Bezier curve as well.
+</b>
+<!-- Example of including multiple figures -->
+<div align="middle">
+  <table style="width:100%">
+    <tr align="center">
+      <td>
+        <img src="images/6curve0.png" align="middle" width="400px"/>
+        <figcaption>Level 0</figcaption>
+      </td>
+      <td>
+        <img src="images/6curve1.png" align="middle" width="400px"/>
+        <figcaption>Level 1</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr align="center">
+      <td>
+        <img src="images/6curve2.png" align="middle" width="400px"/>
+        <figcaption>Level 2</figcaption>
+      </td>
+      <td>
+        <img src="images/6curve3.png" align="middle" width="400px"/>
+        <figcaption>Level 3</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr align="center">
+      <td>
+        <img src="images/6curve4.png" align="middle" width="400px"/>
+        <figcaption>Level 4</figcaption>
+      </td>
+      <td>
+        <img src="images/6curve.png" align="middle" width="400px"/>
+        <figcaption>Final Curve</figcaption>
+      </td>
+    </tr>
+    <br>
+  </table>
+</div>
+<br>
+
+
+<b>
+  Show a screenshot of a slightly different Bezier curve by moving the original control points around and modifying the parameter \(t\) via mouse scrolling.
+</b>
+<div align="middle">
+  <img src="images/6curvediff.png" align="middle" width="400px"/>  
+  <figcaption>My Bezier curve with slightly adjusted vertices and modified t parameter.</figcaption>
+</div>
+<br>
+
+
+<h3 align="middle">Part 2: Bezier Surfaces with Separable 1D de Casteljau</h3>
+<b>
+  Briefly explain how de Casteljau algorithm extends to Bezier surfaces and how you implemented it in order to evaluate Bezier surfaces.
+</b>
+<p>
+    We can extend the algorithm to Bezier surfaces by first applying the algorithm to each Bezier curve defined by a row of the input grid of control points. All these curves lie on the same axis. What we will get 
+    is a list of control points (1 for each Bezier curve). We then apply the algorithm to these control points to produce a curve that lies on the other axis. And using different
+    interpolation parameters, we can model a Bezier surface with multiple iterations of de Casteljau's algorithm. I implemented this process by implementing various functions that accomplish certain
+    of the process. These steps include evaluating one step of de Casteljau's algorithm (BezierPatch::evaluteStep), fully evaluating the algorithm to produce a single control point (BezierPatch::evaluate1D), and then finally applying the 
+    algorithm to the control points produced from applying the previous two steps to the Bezier curves given by the 2d grid (BezierPatch::evaluate).
+</p>
+<br>
+
+
+<b>
+  Show a screenshot of bez/teapot.bez (not .dae) evaluated by your implementation.
+</b>
+<div align="middle">
+  <img src="images/teapotbez.png" align="middle" width="400px"/>
+  <figcaption>Teapot rendered with Bezier patches. </figcaption>
+</div>
+<br>
+
+
+<h2 align="middle">Section II: Triangle Meshes and Half-Edge Data Structure</h2>
+
+<h3 align="middle">Part 3: Area-Weighted Vertex Normals</h3>
+
+<b>
+  Briefly explain how you implemented the area-weighted vertex normals.
+</b>
+<p>
+  I use a do-while loop that iterates through all the vertices adjacent to the calling vertex v0. In a way, my scheme iterates through every 2 adjacent edges and gets the two points v1 and v2 that form a triangle
+  with the vertex. I compute the area of the triangle given by (v0, v1, v2) by computing the cross product (v1-v0, v2-v0), normalizing it, and then scaling by 0.5. I use the area to weight the cross product, which is normalized
+  at the end. I do this until there are no more triangles to evalute, cumulatively summing the area-weighted vertex normals. I return the normalized sum at the end. 
+</p>
+<br>
+
+
+<b>
+  Show screenshots of dae/teapot.dae (not .bez) comparing teapot shading with and without vertex normals. Use <kbd>Q</kbd> to toggle default flat shading and Phong shading.
+</b>
+<p>
+  <div align="middle">
+    <table style="width:100%">
+      <tr align="center">
+        <td>
+          <img src="images/teapot_nophong.png" align="middle" width="400px"/>
+          <figcaption>Teapot with no phong shading.</figcaption>
+        </td>
+        <td>
+          <img src="images/teapot_phong.png" align="middle" width="400px"/>
+          <figcaption>Teapot with phong shading.</figcaption>
+        </td>
+      </tr>
+    </table>
+  </div>
+</p>
+<br>
+
+
+<h3 align="middle">Part 4: Edge Flip</h3>
+<b>
+  Briefly explain how you implemented the edge flip operation and describe any interesting implementation / debugging tricks you have used.
+</b>
+<p>
+    Before I wrote out any code, I drew out comprehensive diagrams of the two triangles adjacent to e0 with every single element included. I did a before diagram before the e0 was flipped
+    and one after e0 is flipped. This helped me see which pointers had to be adjusted in order for flipEdge to work correctly. Drawing out the diagrams also helped me figure out what traversals
+    I needed to do in order to reach various elements in the two-triangle mesh. I organized my code into sections where I would collect all the elements in the two-triangle mesh and sections where
+    I would update the pointers for each group of elements. 
+</p>
+<br>
+
+
+<b>
+  Show screenshots of the teapot before and after some edge flips.
+</b>
+<p>
+  <div align="middle">
+    <table style="width:100%">
+      <tr align="center">
+        <td>
+          <img src="images/teapot_phong.png" align="middle" width="400px"/>
+          <figcaption>Teapot with no edge flips.</figcaption>
+        </td>
+        <td>
+          <img src="images/teapot_flips.png" align="middle" width="400px"/>
+          <figcaption>Teapot with edge flips.</figcaption>
+        </td>
+      </tr>
+    </table>
+  </div>
+</p>
+<br>
+
+
+<b>
+    Write about your eventful debugging journey, if you have experienced one.
+</b>
+<p>
+    When I was working on this, I would often run into bugs where my code would infinitely loop until the program ran out of memory. I was not sure what could have been causing it until
+    I realized that it may have been because I wasn't updating my pointers correctly. Truth be told, I only drew superficial diagrams at the start. It was only after hours of not figuring out 
+    the problem that I decided to draw out a complete diagram, which helped me realized which pointers I wasn't updating correctly. Needless to say, I probably should have taken the staff's advice from the 
+    start. 
+</p>
+<br>
+
+
+<h3 align="middle">Part 5: Edge Split</h3>
+<b>
+  Briefly explain how you implemented the edge split operation and describe any interesting implementation / debugging tricks you have used.
+</b>
+<p>
+    This part was similar to the last one, where using the comprehensive diagrams made reassigning pointers easier to do. However, this part also involves adding some new elements, specifically 
+    3 edges, 2 faces, and 1 vertex. My diagrams were very helpful in visualizing which pointers had to be adjusted in order to accomodate the new elements. 
+</p>
+<br>
+
+
+<b>
+    Show screenshots of a mesh before and after some edge splits. 
+</b>
+<p>
+  <div align="middle">
+    <table style="width:100%">
+      <tr align="center">
+        <td>
+          <img src="images/teapot_nophong.png" align="middle" width="400px"/>
+          <figcaption>Teapot with no edge splits.</figcaption>
+        </td>
+        <td>
+          <img src="images/teapot_splits.png" align="middle" width="400px"/>
+          <figcaption>Teapot with edge splits.</figcaption>
+        </td>
+      </tr>
+    </table>
+  </div>
+</p>
+<br>
+
+
+<b>
+    Show screenshots of a mesh before and after a combination of both edge splits and edge flips.
+</b>
+<p>
+  <div align="middle">
+    <table style="width:100%">
+      <tr align="center">
+        <td>
+          <img src="images/teapot_nophong.png" align="middle" width="400px"/>
+          <figcaption>Teapot with no edge splits and flips.</figcaption>
+        </td>
+        <td>
+          <img src="images/teapot_splitflip.png" align="middle" width="400px"/>
+          <figcaption>Teapot with edge splits and flips.</figcaption>
+        </td>
+      </tr>
+    </table>
+  </div>
+</p>
+<br>
+
+
+<b>
+    Write about your eventful debugging journey, if you have experienced one.
+</b>
+<p>
+    Same situation as the previous part, where my program would infinitely loop due to erroneous reassignments of pointers. 
+</p>
+<br>
+
+
+<h3 align="middle">Part 6: Loop Subdivision for Mesh Upsampling</h3>
+<b>
+  Briefly explain how you implemented the loop subdivision and describe any interesting implementation / debugging tricks you have used.
+</b>
+<p>
+    I followed the recommended outline that was provided in the assignment spec, where I first calculate new positions for the existing vertices in the mesh and then 
+    for the new vertices that will be added from edge splitting. For the existing vertices, I also set their isNew parameter to be false. Because the isNew parameter for both 
+    vertices and edges will be used later on in the subdivision process, I modified my splitEdge function to set the new vertex and new edges' isNew paramters to be true.
+    However, the only exception for the edges is the one that is broken off the input edge, which means it is technically not a new edge and thus 
+    its isNew parameter is set to false. I then split all the edges in the original mesh. The next step that I do is to flip all the new edges that connect an old vertex and a new vertex, which is 
+    where the isNew parameter comes into play. Finally, I update all the vertices' positions to be the new positions that were calculated at the beginning of the process. 
+</p>
+<br>
+
+
+<b>
+  Take some notes, as well as some screenshots, of your observations on how meshes behave after loop subdivision. What happens to sharp corners and edges? Can you reduce this effect by pre-splitting some edges?
+</b>
+<p>
+  <div align="middle">
+    <table style="width:100%">
+      <tr align="center">
+        <td>
+          <img src="images/cube.png" align="middle" width="400px"/>
+          <figcaption>A cube.</figcaption>
+        </td>
+        <td>
+          <img src="images/cube1.png" align="middle" width="400px"/>
+          <figcaption>Not a cube anymore.</figcaption>
+        </td>
+      </tr>
+      <br>
+      <tr align="center">
+        <td>
+          <img src="images/cube2.png" align="middle" width="400px"/>
+          <figcaption>Starting to become more rounded.</figcaption>
+        </td>
+        <td>
+          <img src="images/cube3.png" align="middle" width="400px"/>
+          <figcaption>Almost there</figcaption>
+        </td>
+      </tr>
+      <br>
+      <tr align="center">
+        <td>
+          <img src="images/cube4.png" align="middle" width="400px"/>
+          <figcaption>+2 upsamples, now it's round.</figcaption>
+        </td>
+      </tr>
+      <br>
+    </table>
+  </div>
+  <br>
+</p>
+<br>
+
+
+<b>
+  Load dae/cube.dae. Perform several iterations of loop subdivision on the cube. Notice that the cube becomes slightly asymmetric after repeated subdivisions. Can you pre-process the cube with edge flips and splits so that the cube subdivides symmetrically? Document these effects and explain why they occur. Also explain how your pre-processing helps alleviate the effects.
+</b>
+<p>
+    When only applying edge flips to make the cube symmetrical, the following is produced after a few iterations of subdivision. 
+    <div align="middle">
+      <img src="images/cube_sym.png" align="middle" width="400px"/>
+    </div>
+    When only applying edge flips to make the cube symmetrical, the following is produced after a few iterations of subdivision. 
+    <div align="middle">
+      <img src="images/cube_round.png" align="middle" width="400px"/>
+    </div>
+    In the images above where no symmetrical pre-processing is applied, we can see that the asymmetric affects are due to how the vertices are recalculated with new positions during subdivision. 
+    A vertex connected to an edge that cuts across the surface will have a different weight than from one that no edges that cut across the surface. Because the edge orientations are
+    asymmetric in the original cube, applying subdivision results in the asymmetric shape of the upsampled cube. By preprocessing such that the cube is symmetric with respect to how new positions are 
+    calculated for the vertices. That is to say, if you were to take one half of the cube and calculate new positions for its vertices, then the new positions should be "mirrored" on the other half of the cube.
+    The preprocessing I do above accomplishes that. 
+    
+</p>
+<br>
+
+
+
+</body>
+</html>
